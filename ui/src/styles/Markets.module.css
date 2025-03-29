@@ -1,0 +1,45 @@
+.page {
+	min-height: 100vh;
+	padding: 6rem 2rem 2rem 2rem;
+	background: var(--background-primary);
+}
+
+.main {
+	max-width: 1200px;
+	margin: 0 auto;
+}
+
+.main h1 {
+	margin-bottom: 2rem;
+	font-size: 2rem;
+	font-weight: 600;
+}
+
+.table {
+	margin-top: 2rem;
+	overflow-x: auto;
+	background: var(--background-secondary);
+	border-radius: 0.5rem;
+	border: 1px solid var(--border-color);
+}
+
+.table table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.table th,
+.table td {
+	padding: 1rem;
+	text-align: left;
+	border-bottom: 1px solid var(--border-color);
+}
+
+.table th {
+	background: var(--background-secondary);
+	font-weight: 500;
+}
+
+.table tr:last-child td {
+	border-bottom: none;
+}

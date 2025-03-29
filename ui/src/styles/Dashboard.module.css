@@ -1,0 +1,36 @@
+.page {
+	min-height: 100vh;
+	padding: 6rem 2rem 2rem 2rem;
+	background: var(--background-primary, #000);
+}
+
+.main {
+	max-width: 1200px;
+	margin: 0 auto;
+}
+
+.main h1 {
+	margin-bottom: 2rem;
+	font-size: 2rem;
+	font-weight: 600;
+}
+
+.grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+	gap: 2rem;
+	margin-top: 2rem;
+}
+
+.card {
+	padding: 1.5rem;
+	border-radius: 0.5rem;
+	background: var(--background-secondary, #111);
+	border: 1px solid var(--border-color, #333);
+}
+
+.card h2 {
+	font-size: 1.25rem;
+	font-weight: 500;
+	margin-bottom: 1rem;
+}
