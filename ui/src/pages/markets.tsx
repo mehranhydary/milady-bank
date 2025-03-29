@@ -1,5 +1,6 @@
 import Head from 'next/head'
 import styles from '@/styles/Markets.module.css'
+import MarketsTable from '@/components/PageComponents/Markets/MarketsTable'
 
 export default function Markets() {
 	return (
@@ -11,21 +12,11 @@ export default function Markets() {
 			<div className={styles.page}>
 				<main className={styles.main}>
 					<h1>Markets</h1>
-					<div className={styles.table}>
-						<table>
-							<thead>
-								<tr>
-									<th>Asset</th>
-									<th>Total Supply</th>
-									<th>Supply APY</th>
-									<th>Total Borrow</th>
-									<th>Borrow APY</th>
-									<th>Actions</th>
-								</tr>
-							</thead>
-							<tbody>{/* Add market rows */}</tbody>
-						</table>
-					</div>
+					<p className={styles.description}>
+						Supply assets to earn interest or borrow against your
+						collateral.
+					</p>
+					<MarketsTable />
 				</main>
 			</div>
 		</>

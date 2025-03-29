@@ -35,6 +35,12 @@
 	grid-row-start: 2;
 }
 
+.title {
+	font-size: 64px;
+	letter-spacing: 4px;
+	line-height: 1;
+}
+
 .main ol {
 	font-family: var(--font-geist-mono);
 	padding-left: 0;
