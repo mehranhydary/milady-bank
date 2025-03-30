@@ -88,7 +88,7 @@ Key features:
 -   **Strategy Integration**: Connecting with yield strategies for idle assets
 -   **Mobile-Friendly Interface**: Simplified interactions for mobile users
 
-## Multi-Asset Expansion
+### Multi-Asset Expansion
 
 As we add more assets (ETH, BTC, USDC, USDT, etc.), the architecture will evolve:
 
@@ -99,6 +99,83 @@ As we add more assets (ETH, BTC, USDC, USDT, etc.), the architecture will evolve
 -   **Liquidity Mining Incentives**: Targeted rewards for underserved markets
 
 The modular design allows for seamless addition of new assets without disrupting existing markets.
+
+### Current Test Coverage for MiladyBank
+
+The test suite currently covers core functionality:
+
+**Contract Setup & Admin**
+
+-   Hook deployment and initialization
+-   Router address setting and validation
+-   Pause/unpause functionality
+-   Owner permission checks
+
+**Deposits & Withdrawals**
+
+-   Basic deposit functionality
+-   Deposit amount validation
+-   Deposit state updates
+-   Basic withdrawal functionality
+-   Withdrawal amount validation
+-   Withdrawal state updates
+-   Paused contract restrictions
+
+**Borrowing**
+
+-   Basic borrow via swaps
+-   Collateral ratio enforcement
+-   Flash loan protection
+-   Borrow amount tracking
+-   Interest rate calculations
+
+**Repayment**
+
+-   Basic repayment via swaps
+-   Repayment amount validation
+-   Position updates after repayment
+
+### Additional Tests Needed
+
+**Edge Cases & Security**
+
+-   Reentrancy protection
+-   Integer overflow/underflow
+-   Extreme price movement scenarios
+-   Maximum position sizes
+-   Dust amounts
+
+**Interest Accrual**
+
+-   Interest calculation accuracy
+-   Interest compounding
+-   Interest distribution
+-   Rate updates
+
+**Liquidations**
+
+-   Liquidation triggers
+-   Liquidation bonus calculations
+-   Partial liquidations
+-   Failed liquidation scenarios
+
+**Oracle Integration**
+
+-   Price feed failures
+-   Stale price protection
+-   Price manipulation resistance
+
+**Multi-Asset Interactions**
+
+-   Cross-collateral positions
+-   Multi-asset liquidations
+-   Asset-specific parameters
+
+**Integration Tests**
+
+-   Complex user flows
+-   Multi-operation sequences
+-   External protocol interactions
 
 ## Testing
 
