@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: VPL-1.0
 pragma solidity ^0.8.20;
 
-import {BaseHook} from "v4-periphery/src/utils/BaseHook.sol";
 import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {Hooks} from "v4-core/src/libraries/Hooks.sol";
@@ -13,10 +12,13 @@ import {IERC20} from "v4-core/lib/forge-std/src/interfaces/IERC20.sol";
 import {Currency, CurrencyLibrary} from "v4-core/src/types/Currency.sol";
 import {TickMath} from "v4-core/src/libraries/TickMath.sol";
 import {ReentrancyGuard} from "v4-core/lib/solmate/src/utils/ReentrancyGuard.sol";
+import {Owned} from "v4-core/lib/solmate/src/auth/Owned.sol";
+
+import {BaseHook} from "v4-periphery/src/utils/BaseHook.sol";
 
 import {TruncatedOracle} from "../libraries/TruncatedOracle.sol";
 
-contract MiladyBank is BaseHook, ReentrancyGuard {
+contract MiladyBank is BaseHook, ReentrancyGuard, Owned {
     using StateLibrary for IPoolManager;
     using PoolIdLibrary for PoolKey;
     using CurrencyLibrary for Currency;
@@ -65,7 +67,7 @@ contract MiladyBank is BaseHook, ReentrancyGuard {
         uint256 collateralLiquidated
     );
 
-    constructor(IPoolManager _poolManager, address _router) BaseHook(_poolManager) {
+    constructor(IPoolManager _poolManager, address _router) BaseHook(_poolManager) Owned(msg.sender) {
         router = _router;
     }
 

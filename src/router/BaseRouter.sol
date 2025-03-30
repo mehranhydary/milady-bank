@@ -5,8 +5,10 @@ import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {Currency, CurrencyLibrary} from "v4-core/src/types/Currency.sol";
 import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
-import {TokenUtils} from "../utils/TokenUtils.sol";
 import {Owned} from "v4-core/lib/solmate/src/auth/Owned.sol";
+import {TickMath} from "v4-core/src/libraries/TickMath.sol";
+
+import {TokenUtils} from "../utils/TokenUtils.sol";
 
 abstract contract BaseRouter is Owned {
     using CurrencyLibrary for Currency;
@@ -48,8 +50,19 @@ abstract contract BaseRouter is Owned {
         internal
         returns (BalanceDelta)
     {
-        IPoolManager.SwapParams memory params =
-            IPoolManager.SwapParams({zeroForOne: zeroForOne, amountSpecified: amountSpecified, sqrtPriceLimitX96: 0});
+        // Validate amountSpecified to prevent overflow/underflow
+        require(amountSpecified != type(int256).min, "Amount cannot be min int256");
+
+        // Set sqrtPriceLimitX96 based on direction to limit slippage
+        uint160 sqrtPriceLimitX96 = zeroForOne
+            ? TickMath.MIN_SQRT_PRICE + 1 // Minimum price for 0->1 swaps
+            : TickMath.MAX_SQRT_PRICE - 1; // Maximum price for 1->0 swaps
+
+        IPoolManager.SwapParams memory params = IPoolManager.SwapParams({
+            zeroForOne: zeroForOne,
+            amountSpecified: amountSpecified,
+            sqrtPriceLimitX96: sqrtPriceLimitX96
+        });
 
         return poolManager.swap(key, params, hookData);
     }
