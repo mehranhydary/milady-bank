@@ -7,30 +7,32 @@ import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
+import {BeforeSwapDelta, toBeforeSwapDelta} from "@uniswap/v4-core/src/types/BeforeSwapDelta.sol";
+import {StateLibrary} from "v4-core/src/libraries/StateLibrary.sol";
 import {IERC20} from "v4-core/lib/forge-std/src/interfaces/IERC20.sol";
+import {Currency, CurrencyLibrary} from "v4-core/src/types/Currency.sol";
 import {TickMath} from "v4-core/src/libraries/TickMath.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {ReentrancyGuard} from "v4-core/lib/solmate/src/utils/ReentrancyGuard.sol";
 
-import {TruncatedOracle} from "./libraries/TruncatedOracle.sol";
+import {TruncatedOracle} from "../libraries/TruncatedOracle.sol";
 
 contract MiladyBank is BaseHook, ReentrancyGuard {
+    using StateLibrary for IPoolManager;
     using PoolIdLibrary for PoolKey;
+    using CurrencyLibrary for Currency;
     using TruncatedOracle for TruncatedOracle.Observation[65535];
 
-    struct LendingPool {
-        uint256 totalDeposits;
-        uint256 totalBorrows;
-        uint256 lastUpdateTimestamp;
-        uint256 baseRate; // Base interest rate in basis points
-        uint256 utilizationMultiplier; // Multiplier for utilization rate
-        uint256 lastInterestRate; // Last calculated interest rate
-        mapping(address => UserPosition) userPositions;
+    struct UserPosition {
+        int256 deposits; // Changed from uint256 to int256
+        int256 borrows; // Changed from uint256 to int256
     }
 
-    struct UserPosition {
-        uint256 deposits;
-        uint256 borrows;
-        uint256 lastInterestAccrual;
+    struct LendingPool {
+        int256 totalDeposits; // Changed from uint256 to int256
+        int256 totalBorrows; // Changed from uint256 to int256
+        int256 lastInterestRate; // Basis points (e.g., 500 = 5%)
+        uint256 lastUpdateTimestamp;
+        mapping(address => UserPosition) userPositions;
     }
 
     struct ObservationState {
@@ -51,10 +53,10 @@ contract MiladyBank is BaseHook, ReentrancyGuard {
     mapping(PoolId => LendingPool) public lendingPools;
 
     // Events
-    event Deposit(address indexed user, PoolId indexed poolId, uint256 amount);
-    event Withdraw(address indexed user, PoolId indexed poolId, uint256 amount);
-    event Borrow(address indexed user, PoolId indexed poolId, uint256 amount);
-    event Repay(address indexed user, PoolId indexed poolId, uint256 amount);
+    event Deposit(address indexed user, PoolId indexed poolId, int256 amount);
+    event Withdraw(address indexed user, PoolId indexed poolId, int256 amount);
+    event Borrow(address indexed user, PoolId indexed poolId, int256 amount);
+    event Repay(address indexed user, PoolId indexed poolId, int256 amount);
     event Liquidation(
         address indexed liquidator,
         address indexed user,
@@ -92,7 +94,7 @@ contract MiladyBank is BaseHook, ReentrancyGuard {
 
     function _updateOracle(PoolKey calldata key) private {
         bytes32 id = keccak256(abi.encode(key));
-        (, int24 tick,) = poolManager.getSlot0(key.toId());
+        (, int24 tick,,) = poolManager.getSlot0(key.toId());
         uint128 liquidity = poolManager.getLiquidity(key.toId());
 
         (states[id].index, states[id].cardinality) = observations[id].write(
@@ -116,7 +118,7 @@ contract MiladyBank is BaseHook, ReentrancyGuard {
         );
 
         int24 twapTick = int24((tickCumulatives[1] - tickCumulatives[0]) / int48(uint48(TWAP_PERIOD)));
-        uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(twapTick);
+        uint160 sqrtPriceX96 = TickMath.getSqrtPriceAtTick(twapTick);
         return uint256(sqrtPriceX96) * uint256(sqrtPriceX96) >> 192;
     }
 
@@ -145,8 +147,7 @@ contract MiladyBank is BaseHook, ReentrancyGuard {
         PoolId poolId = key.toId();
         LendingPool storage pool = lendingPools[poolId];
 
-        pool.baseRate = 500; // 5% base rate
-        pool.utilizationMultiplier = 2000; // 20% max additional rate
+        pool.lastInterestRate = 500; // 5% base rate
         pool.lastUpdateTimestamp = block.timestamp;
 
         return BaseHook.beforeInitialize.selector;
@@ -170,19 +171,19 @@ contract MiladyBank is BaseHook, ReentrancyGuard {
 
         // Calculate collateral to liquidate including bonus
         uint256 collateralToLiquidate = (debtAmount * (10000 + LIQUIDATION_BONUS) / 10000) / price;
-        require(collateralToLiquidate <= position.deposits, "Too much collateral");
+        require(collateralToLiquidate <= uint256(position.deposits), "Too much collateral");
 
         // Transfer debt tokens from liquidator
-        IERC20(address(key.currency1)).transferFrom(msg.sender, address(this), debtAmount);
+        IERC20(Currency.unwrap(key.currency1)).transferFrom(msg.sender, address(this), debtAmount);
 
         // Reduce user's debt and collateral
-        position.borrows -= debtAmount;
-        position.deposits -= collateralToLiquidate;
-        pool.totalBorrows -= debtAmount;
-        pool.totalDeposits -= collateralToLiquidate;
+        position.borrows -= int256(debtAmount);
+        position.deposits -= int256(collateralToLiquidate);
+        pool.totalBorrows -= int256(debtAmount);
+        pool.totalDeposits -= int256(collateralToLiquidate);
 
         // Transfer collateral to liquidator
-        IERC20(address(key.currency0)).transfer(msg.sender, collateralToLiquidate);
+        key.currency0.transfer(msg.sender, collateralToLiquidate);
 
         emit Liquidation(msg.sender, user, poolId, debtAmount, collateralToLiquidate);
     }
@@ -194,26 +195,26 @@ contract MiladyBank is BaseHook, ReentrancyGuard {
 
         if (position.borrows == 0) return type(uint256).max;
 
-        uint256 collateralValue = position.deposits * getPrice(key);
-        uint256 borrowValue = position.borrows;
+        uint256 collateralValue = uint256(position.deposits) * getPrice(key);
+        uint256 borrowValue = uint256(position.borrows);
 
         healthFactor = (collateralValue * 10000) / (borrowValue * LIQUIDATION_THRESHOLD);
     }
 
-    function deposit(PoolKey calldata key, uint256 amount) external nonReentrant {
+    function deposit(PoolKey calldata key, int256 amount) external nonReentrant {
         address depositor = msg.sender == router ? tx.origin : msg.sender;
         PoolId poolId = key.toId();
         LendingPool storage pool = lendingPools[poolId];
         UserPosition storage position = pool.userPositions[depositor];
 
-        IERC20(address(key.currency0)).transferFrom(depositor, address(this), amount);
+        IERC20(Currency.unwrap(key.currency0)).transferFrom(depositor, address(this), uint256(amount));
         position.deposits += amount;
         pool.totalDeposits += amount;
 
         emit Deposit(depositor, poolId, amount);
     }
 
-    function withdraw(PoolKey calldata key, uint256 amount) external nonReentrant {
+    function withdraw(PoolKey calldata key, int256 amount) external nonReentrant {
         address withdrawer = msg.sender == router ? tx.origin : msg.sender;
         PoolId poolId = key.toId();
         LendingPool storage pool = lendingPools[poolId];
@@ -222,75 +223,104 @@ contract MiladyBank is BaseHook, ReentrancyGuard {
         require(position.deposits >= amount, "Insufficient deposits");
 
         // Check if withdrawal would put pool at risk
-        uint256 newUtilization = ((pool.totalBorrows * 10000) / (pool.totalDeposits - amount));
+        uint256 newUtilization = (uint256(pool.totalBorrows) * 10000) / uint256(pool.totalDeposits - amount);
         require(newUtilization <= 9000, "Utilization would be too high"); // Max 90% utilization
 
         position.deposits -= amount;
         pool.totalDeposits -= amount;
 
         // Transfer tokens back to user
-        IERC20(address(key.currency0)).transfer(withdrawer, amount);
+        key.currency0.transfer(withdrawer, uint256(amount));
 
         emit Withdraw(withdrawer, poolId, amount);
     }
 
     // Calculate dynamic interest rate based on utilization
-    function calculateInterestRate(LendingPool storage pool) internal view returns (uint256) {
-        if (pool.totalDeposits == 0) return pool.baseRate;
+    function calculateInterestRate(LendingPool storage pool) internal view returns (int256) {
+        if (pool.totalDeposits == 0) return 500;
 
-        uint256 utilization = (pool.totalBorrows * 10000) / pool.totalDeposits;
-        uint256 variableRate = (utilization * pool.utilizationMultiplier) / 10000;
+        int256 utilizationRate = (pool.totalBorrows * 10000) / pool.totalDeposits;
 
-        return pool.baseRate + variableRate;
+        return 500 + utilizationRate / 10;
     }
 
-    function beforeAddLiquidity(address, PoolKey calldata key, uint160, BalanceDelta params)
-        external
-        returns (bytes4)
-    {
+    function _beforeAddLiquidity(
+        address sender,
+        PoolKey calldata key,
+        IPoolManager.ModifyLiquidityParams calldata params,
+        bytes calldata
+    ) internal override returns (bytes4) {
         PoolId poolId = key.toId();
         LendingPool storage pool = lendingPools[poolId];
 
         // Update interest rates based on new position
-        uint256 newRate = calculateInterestRate(pool);
+        int256 newRate = calculateInterestRate(pool);
         pool.lastInterestRate = newRate;
 
-        // Update pool state
-        if (params.amount0() > 0) {
-            pool.totalDeposits += uint256(params.amount0());
-        } else {
-            pool.totalDeposits -= uint256(-params.amount0());
+        // Calculate liquidity delta
+        int256 liquidityChange = params.liquidityDelta;
+        if (liquidityChange > 0) {
+            // Adding liquidity
+            pool.totalDeposits += liquidityChange;
+
+            // Update user position
+            UserPosition storage position = pool.userPositions[sender];
+            position.deposits += liquidityChange;
+            emit Deposit(sender, poolId, liquidityChange);
+        } else if (liquidityChange < 0) {
+            // Removing liquidity
+            pool.totalDeposits += liquidityChange; // Will subtract since liquidityChange is negative
         }
 
         return BaseHook.beforeAddLiquidity.selector;
     }
 
-    function beforeRemoveLiquidity(address, PoolKey calldata key, uint160, BalanceDelta params)
-        external
-        returns (bytes4)
-    {
+    function _beforeRemoveLiquidity(
+        address sender,
+        PoolKey calldata key,
+        IPoolManager.ModifyLiquidityParams calldata params,
+        bytes calldata
+    ) internal override returns (bytes4) {
         PoolId poolId = key.toId();
         LendingPool storage pool = lendingPools[poolId];
 
         // Update interest rates based on new position
-        uint256 newRate = calculateInterestRate(pool);
+        int256 newRate = calculateInterestRate(pool);
         pool.lastInterestRate = newRate;
 
-        // Update pool state
-        if (params.amount0() > 0) {
-            pool.totalDeposits += uint256(params.amount0());
-        } else {
-            pool.totalDeposits -= uint256(-params.amount0());
+        // Calculate liquidity delta
+        int256 liquidityChange = params.liquidityDelta;
+        if (liquidityChange < 0) {
+            // Removing liquidity
+            UserPosition storage position = pool.userPositions[sender];
+            require(int256(position.deposits) >= int256(-liquidityChange), "Insufficient deposits");
+
+            // Check if withdrawal would put pool at risk
+            int256 newUtilization =
+                ((int256(pool.totalBorrows) * 10000) / (int256(pool.totalDeposits) + liquidityChange));
+            require(newUtilization <= 9000, "Utilization would be too high"); // Max 90% utilization
+
+            position.deposits += liquidityChange; // Will subtract since liquidityChange is negative
+            pool.totalDeposits += liquidityChange;
+            emit Withdraw(sender, poolId, -liquidityChange);
+        } else if (liquidityChange > 0) {
+            // Adding liquidity
+            pool.totalDeposits += liquidityChange;
+
+            // Update user position
+            UserPosition storage position = pool.userPositions[sender];
+            position.deposits += liquidityChange;
+            emit Deposit(sender, poolId, liquidityChange);
         }
 
         return BaseHook.beforeRemoveLiquidity.selector;
     }
 
     // Handle borrowing through swaps
-    function beforeSwap(address sender, PoolKey calldata key, IPoolManager.SwapParams calldata params)
-        external
-        onlyPoolManager
-        returns (bytes4)
+    function _beforeSwap(address sender, PoolKey calldata key, IPoolManager.SwapParams calldata params, bytes calldata)
+        internal
+        override
+        returns (bytes4, BeforeSwapDelta, uint24)
     {
         PoolId poolId = key.toId();
         LendingPool storage pool = lendingPools[poolId];
@@ -298,29 +328,33 @@ contract MiladyBank is BaseHook, ReentrancyGuard {
         // Update borrow amounts based on swap
         if (params.zeroForOne) {
             // Borrowing
-            require(
-                (position.borrows + params.amountSpecified) <= (position.deposits * 75) / 100, // 75% collateral ratio
-                "Insufficient collateral"
-            );
-            position.borrows += params.amountSpecified;
-            pool.totalBorrows += params.amountSpecified;
-            emit Borrow(sender, poolId, params.amountSpecified);
+            int256 borrowAmount = params.amountSpecified;
+            require(borrowAmount > 0, "Invalid borrow amount");
+
+            require((position.borrows + borrowAmount) * 100 <= position.deposits * 75, "Exceeds collateral ratio");
+            position.borrows += borrowAmount;
+            pool.totalBorrows += borrowAmount;
+            emit Borrow(sender, poolId, borrowAmount);
         } else {
             // Repaying
-            require(position.borrows >= params.amountSpecified, "Repaying too much");
-            position.borrows -= params.amountSpecified;
-            pool.totalBorrows -= params.amountSpecified;
-            emit Repay(sender, poolId, params.amountSpecified);
+            int256 repayAmount = params.amountSpecified;
+            require(repayAmount > 0, "Invalid repay amount");
+
+            require(position.borrows >= repayAmount, "Repaying too much");
+            position.borrows -= repayAmount;
+            pool.totalBorrows -= repayAmount;
+            emit Repay(sender, poolId, repayAmount);
         }
 
         pool.lastInterestRate = calculateInterestRate(pool);
-        return BaseHook.beforeSwap.selector;
+        return (BaseHook.beforeSwap.selector, toBeforeSwapDelta(0, 0), 0);
     }
 
     // Accrue interest after swaps
-    function afterSwap(address, PoolKey calldata key, IPoolManager.SwapParams calldata, BalanceDelta)
-        external
-        returns (bytes4)
+    function _afterSwap(address, PoolKey calldata key, IPoolManager.SwapParams calldata, BalanceDelta, bytes calldata)
+        internal
+        override
+        returns (bytes4, int128)
     {
         PoolId poolId = key.toId();
         LendingPool storage pool = lendingPools[poolId];
@@ -328,20 +362,21 @@ contract MiladyBank is BaseHook, ReentrancyGuard {
         // Calculate and apply interest with better precision
         uint256 timeElapsed = block.timestamp - pool.lastUpdateTimestamp;
         // Multiply by 1e18 for better precision before division
-        uint256 interest = (pool.totalBorrows * pool.lastInterestRate * timeElapsed * 1e18) / (365 days * 10000);
+        int256 interest =
+            (pool.totalBorrows * pool.lastInterestRate * int256(timeElapsed) * 1e18) / (int256(365 days) * 10000);
         interest = interest / 1e18; // Scale back down
 
         pool.totalBorrows += interest;
         pool.lastUpdateTimestamp = block.timestamp;
 
-        return BaseHook.afterSwap.selector;
+        return (BaseHook.afterSwap.selector, 0);
     }
 
     // View functions for external integrations
     function getPoolState(PoolKey calldata key)
         external
         view
-        returns (uint256 totalDeposits, uint256 totalBorrows, uint256 currentRate, uint256 utilization)
+        returns (int256 totalDeposits, int256 totalBorrows, int256 currentRate, int256 utilization)
     {
         PoolId poolId = key.toId();
         LendingPool storage pool = lendingPools[poolId];
@@ -350,7 +385,7 @@ contract MiladyBank is BaseHook, ReentrancyGuard {
             pool.totalDeposits,
             pool.totalBorrows,
             pool.lastInterestRate,
-            pool.totalDeposits == 0 ? 0 : (pool.totalBorrows * 10000) / pool.totalDeposits
+            pool.totalDeposits == 0 ? int256(0) : (pool.totalBorrows * 10000) / pool.totalDeposits
         );
     }
 }

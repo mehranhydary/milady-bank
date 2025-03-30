@@ -21,7 +21,7 @@ import {EasyPosm} from "./utils/EasyPosm.sol";
 import {Fixtures} from "./utils/Fixtures.sol";
 import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
 
-import {MiladyBank} from "../src/MiladyBank.sol";
+import {MiladyBank} from "../src/bank/MiladyBank.sol";
 
 contract MiladyBankTest is Test, Fixtures {
     using EasyPosm for IPositionManager;
