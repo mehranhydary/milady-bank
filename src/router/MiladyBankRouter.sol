@@ -20,17 +20,12 @@ import {ReentrancyGuard} from "v4-core/lib/solmate/src/utils/ReentrancyGuard.sol
  *    - Check fee tier bounds
  *    - Verify hook contracts
  *
- * 2. Consider implementing flash loan protection
- *    - Add minimum hold time for borrowed assets
- *    - Implement rate limiting
- *    - Add checks for suspicious transaction patterns
- *
- * 3. Add events for emergency actions
+ * 2. Add events for emergency actions
  *    - Log pause/unpause with reason
  *    - Track emergency withdrawals
  *    - Monitor critical state changes
  *
- * 4. Consider adding access control for router registration in bank
+ * 3. Consider adding access control for router registration in bank
  *    - Implement role-based permissions
  *    - Add admin controls
  *    - Create allowlist of approved routers
@@ -40,6 +35,13 @@ contract MiladyBankRouter is BaseRouter, ReentrancyGuard {
     using TokenUtils for Currency;
 
     MiladyBank public immutable bank;
+
+    // Flash loan protection
+    mapping(address => uint256) public lastBorrowTime;
+    mapping(address => uint256) public borrowedInWindow;
+    uint256 constant MIN_HOLD_TIME = 1 minutes;
+    uint256 constant RATE_LIMIT_WINDOW = 1 hours;
+    uint256 constant MAX_BORROW_PER_WINDOW = 1000e18; // Adjust based on token decimals
 
     constructor(IPoolManager _poolManager, MiladyBank _bank) BaseRouter(_poolManager, msg.sender) {
         bank = _bank;
@@ -74,12 +76,27 @@ contract MiladyBankRouter is BaseRouter, ReentrancyGuard {
         require(minAmountOut > 0, "MinAmountOut must be positive");
         require(uint256(minAmountOut) <= type(uint256).max, "MinAmountOut exceeds uint256 max");
 
+        // Flash loan protection checks
+        require(block.timestamp >= lastBorrowTime[msg.sender] + MIN_HOLD_TIME, "Must wait before borrowing again");
+
+        // Reset window if expired
+        if (block.timestamp >= lastBorrowTime[msg.sender] + RATE_LIMIT_WINDOW) {
+            borrowedInWindow[msg.sender] = 0;
+        }
+
+        require(borrowedInWindow[msg.sender] + uint256(borrowAmount) <= MAX_BORROW_PER_WINDOW, "Exceeds rate limit");
+
         BalanceDelta delta = executeSwap(key, true, borrowAmount, "");
 
         // Transfer borrowed tokens to user
         int256 borrowedAmount = -delta.amount1(); // Negative since tokens flow out of pool
         require(borrowedAmount >= minAmountOut, "Insufficient output amount");
         require(uint256(borrowedAmount) <= type(uint256).max, "Borrowed amount exceeds uint256 max");
+
+        // Update flash loan protection state
+        lastBorrowTime[msg.sender] = block.timestamp;
+        borrowedInWindow[msg.sender] += uint256(borrowedAmount);
+
         TokenUtils.transfer(key.currency1, msg.sender, uint256(borrowedAmount));
         emit Borrowed(msg.sender, Currency.unwrap(key.currency1), borrowAmount, borrowedAmount);
     }
@@ -123,6 +140,16 @@ contract MiladyBankRouter is BaseRouter, ReentrancyGuard {
         require(maxAmountIn > 0, "MaxAmountIn must be positive");
         require(uint256(maxAmountIn) <= type(uint256).max, "MaxAmountIn exceeds uint256 max");
 
+        // Flash loan protection checks
+        require(block.timestamp >= lastBorrowTime[msg.sender] + MIN_HOLD_TIME, "Must wait before borrowing again");
+
+        // Reset window if expired
+        if (block.timestamp >= lastBorrowTime[msg.sender] + RATE_LIMIT_WINDOW) {
+            borrowedInWindow[msg.sender] = 0;
+        }
+
+        require(borrowedInWindow[msg.sender] + uint256(borrowAmount) <= MAX_BORROW_PER_WINDOW, "Exceeds rate limit");
+
         uint256 amount = TokenUtils.transferFromUser(key.currency0, msg.sender, address(this), depositAmount);
         TokenUtils.approve(key.currency0, address(bank), amount);
         bank.deposit(key, depositAmount);
@@ -134,6 +161,11 @@ contract MiladyBankRouter is BaseRouter, ReentrancyGuard {
         require(borrowedAmount >= minAmountOut, "Insufficient output amount");
         require(borrowedAmount <= maxAmountIn, "Excessive input amount");
         require(uint256(borrowedAmount) <= type(uint256).max, "Borrowed amount exceeds uint256 max");
+
+        // Update flash loan protection state
+        lastBorrowTime[msg.sender] = block.timestamp;
+        borrowedInWindow[msg.sender] += uint256(borrowedAmount);
+
         TokenUtils.transfer(key.currency1, msg.sender, uint256(borrowedAmount));
         emit Borrowed(msg.sender, Currency.unwrap(key.currency1), borrowAmount, borrowedAmount);
     }
