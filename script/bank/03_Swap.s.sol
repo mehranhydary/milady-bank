@@ -8,8 +8,8 @@ import {PoolSwapTest} from "v4-core/src/test/PoolSwapTest.sol";
 import {TickMath} from "v4-core/src/libraries/TickMath.sol";
 import {CurrencyLibrary, Currency} from "v4-core/src/types/Currency.sol";
 
-import {Constants} from "./base/Constants.sol";
-import {Config} from "./base/Config.sol";
+import {Constants} from "../base/Constants.sol";
+import {Config} from "../base/Config.sol";
 
 contract SwapScript is Script, Constants, Config {
     // slippage tolerance to allow for unlimited price impact

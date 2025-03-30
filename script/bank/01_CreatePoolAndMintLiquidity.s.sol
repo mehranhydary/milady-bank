@@ -10,8 +10,8 @@ import {LiquidityAmounts} from "v4-core/test/utils/LiquidityAmounts.sol";
 import {TickMath} from "v4-core/src/libraries/TickMath.sol";
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
-import {Constants} from "./base/Constants.sol";
-import {Config} from "./base/Config.sol";
+import {Constants} from "../base/Constants.sol";
+import {Config} from "../base/Config.sol";
 
 contract CreatePoolAndAddLiquidityScript is Script, Constants, Config {
     using CurrencyLibrary for Currency;

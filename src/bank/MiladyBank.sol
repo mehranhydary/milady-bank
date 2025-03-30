@@ -17,7 +17,6 @@ import {Owned} from "v4-core/lib/solmate/src/auth/Owned.sol";
 import {BaseHook} from "v4-periphery/src/utils/BaseHook.sol";
 
 import {TruncatedOracle} from "../libraries/TruncatedOracle.sol";
-import {LendingPoolModule} from "./LendingPoolModule.sol";
 
 /**
  * @notice Open items and improvements needed for MiladyBank
@@ -111,9 +110,7 @@ contract MiladyBank is BaseHook, ReentrancyGuard, Owned {
     event Paused(address indexed owner);
     event Unpaused(address indexed owner);
 
-    constructor(IPoolManager _poolManager) BaseHook(_poolManager) Owned(msg.sender) {
-        require(_router != address(0), "Invalid router address");
-    }
+    constructor(IPoolManager _poolManager) BaseHook(_poolManager) Owned(msg.sender) {}
 
     modifier whenNotPaused() {
         require(!paused, "Contract is paused");
