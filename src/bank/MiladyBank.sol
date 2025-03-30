@@ -17,6 +17,7 @@ import {Owned} from "v4-core/lib/solmate/src/auth/Owned.sol";
 import {BaseHook} from "v4-periphery/src/utils/BaseHook.sol";
 
 import {TruncatedOracle} from "../libraries/TruncatedOracle.sol";
+import {LendingPoolModule} from "./LendingPoolModule.sol";
 
 /**
  * @notice Open items and improvements needed for MiladyBank
@@ -31,6 +32,25 @@ import {TruncatedOracle} from "../libraries/TruncatedOracle.sol";
  *    - Unit tests for core functions
  *    - Integration tests
  *    - Fuzzing and invariant tests
+ * 3. Modular architecture
+ *    - Split into smaller, focused contracts
+ *    - Extract reusable components
+ *    - Implement upgradeable modules
+ *
+ * 4. Risk management
+ *    - Add position size limits
+ *    - Implement circuit breakers
+ *    - Add emergency shutdown
+ *
+ * 5. Oracle improvements
+ *    - Add fallback price sources
+ *    - Implement heartbeat checks
+ *    - Add price deviation bounds
+ *
+ * 6. Gas optimization
+ *    - Batch operations where possible
+ *    - Optimize storage layout
+ *    - Use assembly for hot paths
  */
 contract MiladyBank is BaseHook, ReentrancyGuard, Owned {
     using StateLibrary for IPoolManager;

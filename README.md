@@ -13,16 +13,6 @@ This is a protocol that takes a new approach to borrowing and lending on chain. 
 2. Once liquidity is added, they can brorrow through swaps
 3. They can repay through reverse swaps
 
-## Pending work
-
-1. Adding access controls
-2. Implementing liquidation mechanisms
-3. Oracle integration for price feeds (use Uniswap v4 oracles)
-4. Add emergency pause fn
-5. Add more sophisticated interest rate models
-6. Implement flash loan protection
-7. Testing (for basics and items listed above)
-
 <details>
 <summary>Updating to v4-template:latest</summary>
 
