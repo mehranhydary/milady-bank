@@ -152,11 +152,7 @@ contract MiladyBank is BaseHook, ReentrancyGuard {
         return BaseHook.beforeInitialize.selector;
     }
 
-    function afterInitialize(address, PoolKey calldata key, uint160, int24 tick)
-        external
-        onlyPoolManager
-        returns (bytes4)
-    {
+    function _afterInitialize(address, PoolKey calldata key, uint160, int24 tick) internal override returns (bytes4) {
         bytes32 id = keccak256(abi.encode(key));
         (states[id].cardinality, states[id].cardinalityNext) = observations[id].initialize(_blockTimestamp(), tick);
         return BaseHook.afterInitialize.selector;
