@@ -177,6 +177,10 @@ The test suite currently covers core functionality:
 -   Multi-operation sequences
 -   External protocol interactions
 
+### Front end integration
+
+There is a lot of work to be done.
+
 ## Testing
 
 To test the protocol locally:
@@ -194,3 +198,15 @@ To test the protocol locally:
 3. Test your code
 
 -   Run `forge test --fork-url http://localhost:8545`
+
+## Hackathon details
+
+1. Created a new wallet with `cast wallet new`.
+2. Funded wallet through Relay `0x681DF770569039282e45FAE6f94fBb3eED0bB1b4`.
+3. Using Alchemy Unichain RPC.
+4. Run `source .env` to load private key, rpc, etc.
+5. Ran `forge script script/bank/00_MiladyBank.s.sol --rpc-url $UNICHAIN_RPC_URL --private-key $PK --broadcast`. Note that the tokens set are WETH and USDC on Unichain (see `script/base/Config.sol`). Transaction: https://uniscan.xyz/tx/0x1993d043d9e43f18053e1fd88f2421da4f388debb360156f560739d2750a6528.
+6. Went on Uniswap on Unichain, swapped some ETH for USDC
+7. Also wrapped some ETH to WETH
+8. Went to the `01_CreatePoolAndMintLiquidity.s.sol` script and updated the token amounts. The pool and liquidity is created: https://uniscan.xyz/tx/0x6aee756a840fa0fc6f84d49062656cbcea25489f79891b8b9e81674073f2df0f.
+9. TODO: Deploy router, update bank with router, and then connect all of this to the UI.

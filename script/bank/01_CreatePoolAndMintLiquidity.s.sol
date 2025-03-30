@@ -21,16 +21,17 @@ contract CreatePoolAndAddLiquidityScript is Script, Constants, Config {
 
     uint160 startingPrice = 79228162514264337593543950336; // floor(sqrt(1) * 2^96); need to also determine what the current price should be... prob look at the actual price of ETH on the day you launch this
 
-    uint256 public token0Amount = 1e18;
-    uint256 public token1Amount = 1e18;
+    uint256 public token0Amount = 1e16; // 0.01 ETH
+    uint256 public token1Amount = 18e6; // 18 USDC (6 decimals)
 
     int24 tickLower = -887220; // must be a multiple of tickSpacing (-60 * 14787)
     int24 tickUpper = 887220; // must be a multiple of tickSpacing (60 * 14787)
 
     function run() external {
+        // Swap currency0 and currency1 since USDC address is lower than WETH
         PoolKey memory pool = PoolKey({
-            currency0: currency0,
-            currency1: currency1,
+            currency0: currency1, // USDC
+            currency1: currency0, // WETH
             fee: lpFee,
             tickSpacing: tickSpacing,
             hooks: hookContract
@@ -41,12 +42,12 @@ contract CreatePoolAndAddLiquidityScript is Script, Constants, Config {
             startingPrice,
             TickMath.getSqrtPriceAtTick(tickLower),
             TickMath.getSqrtPriceAtTick(tickUpper),
-            token0Amount,
-            token1Amount
+            token1Amount, // USDC amount
+            token0Amount // WETH amount
         );
 
-        uint256 amount0Max = token0Amount + 1 wei;
-        uint256 amount1Max = token1Amount + 1 wei;
+        uint256 amount0Max = token1Amount + 1 wei; // USDC
+        uint256 amount1Max = token0Amount + 1 wei; // WETH
 
         (bytes memory actions, bytes[] memory mintParams) =
             _mintLiquidityParams(pool, tickLower, tickUpper, liquidity, amount0Max, amount1Max, address(this), hookData);
@@ -63,7 +64,7 @@ contract CreatePoolAndAddLiquidityScript is Script, Constants, Config {
         );
 
         // if the pool is an ETH pair, native tokens are to be transferred
-        uint256 valueToPass = currency0.isAddressZero() ? amount0Max : 0;
+        uint256 valueToPass = currency1.isAddressZero() ? amount1Max : 0; // Check currency1 (WETH) for native ETH
 
         vm.startBroadcast();
         tokenApprovals();
