@@ -99,3 +99,21 @@ As we add more assets (ETH, BTC, USDC, USDT, etc.), the architecture will evolve
 -   **Liquidity Mining Incentives**: Targeted rewards for underserved markets
 
 The modular design allows for seamless addition of new assets without disrupting existing markets.
+
+## Testing
+
+To test the protocol locally:
+
+1. Get a Unichain RPC URL from Alchemy:
+
+    - Create an account at https://www.alchemy.com/
+    - Create a new app for Unichain network
+    - Copy the HTTPS endpoint URL
+
+2. Start Anvil with a fork:
+
+-   Run `anvil --fork-url https://mainnet.unichain.org`
+
+3. Test your code
+
+-   Run `forge test --fork-url http://localhost:8545`
