@@ -1,114 +1,88 @@
 # Milady Bank Protocol V0
 
-This is a protocol that takes a new approach to borrowing and lending on chain. This protocol uses Uniswap v4 Hooks for optimized interest rates.
+Milady Bank is a lending and borrowing protocol built with Uniswap v4 hooks. The protocol focuses on offering optimized interest rates.
 
-## Basics
+## 🏦 24-Hour Hackathon Project 🚀
 
-1. There is a dynamic interest rate model (5%). As users use the liquidity, the interest rate will update in real time.
-2. There is a pool that tracks deposits and borrows, handles interest accrual, and updates state on position changes.
-
-## How to use?
-
-1. Users deposit their asset into the pool by adding liquidity
-2. Once liquidity is added, they can brorrow through swaps
-3. They can repay through reverse swaps
-
-<details>
-<summary>Updating to v4-template:latest</summary>
-
-This template is actively maintained -- you can update the v4 dependencies, scripts, and helpers:
-
-```bash
-git remote add template https://github.com/uniswapfoundation/v4-template
-git fetch template
-git merge template/main <BRANCH> --allow-unrelated-histories
-```
-
-</details>
+This innovative lending protocol was built in just **24 hours** during the **Unichain Friends and Family Hackathon** (March 29-30, 2024)! It showcases groundbreaking possibilities for optimized lending using Uniswap v4's powerful hook system.
 
 ---
 
-### Check Forge Installation
+⚠️ **IMPORTANT SECURITY NOTICE** ⚠️
 
-_Ensure that you have correctly installed Foundry (Forge) Stable. You can update Foundry by running:_
+This is an experimental proof-of-concept created during a hackathon environment. The codebase:
 
-```
-foundryup
-```
-
-> _v4-template_ appears to be _incompatible_ with Foundry Nightly. See [foundry announcements](https://book.getfoundry.sh/announcements) to revert back to the stable build
-
-## Set up
-
-_requires [foundry](https://book.getfoundry.sh)_
-
-```
-forge install
-forge test
-```
-
-### Local Development (Anvil)
-
-Other than writing unit tests (recommended!), you can only deploy & test hooks on [anvil](https://book.getfoundry.sh/anvil/)
-
-```bash
-# start anvil, a local EVM chain
-anvil
-
-# in a new terminal
-forge script script/Anvil.s.sol \
-    --rpc-url http://localhost:8545 \
-    --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
-    --broadcast
-```
-
-See [script/](script/) for hook deployment, pool creation, liquidity provision, and swapping.
+-   Has not been security audited
+-   Needs significant additional development
+-   Is NOT ready for production use
+-   Should be used at your own risk
 
 ---
 
-<details>
-<summary><h2>Troubleshooting</h2></summary>
+## Architecture
 
-### _Permission Denied_
+### MiladyBank Contract
 
-When installing dependencies with `forge install`, Github may throw a `Permission Denied` error
+This contract is the central component of the protocol, handling:
 
-Typically caused by missing Github SSH keys, and can be resolved by following the steps [here](https://docs.github.com/en/github/authenticating-to-github/connecting-to-github-with-ssh)
+-   **Deposit Management**: Users can deposit assets to earn interest and use as collateral
+-   **Borrowing Logic**: Facilitates borrowing against deposited collateral
+-   **Interest Rate Model**: Dynamic interest rates based on utilization
+-   **Health Monitoring**: Tracks user positions and collateralization ratios
+-   **Liquidation Triggers**: Initiates liquidations when positions become unhealthy
 
-Or [adding the keys to your ssh-agent](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent#adding-your-ssh-key-to-the-ssh-agent), if you have already uploaded SSH keys
+Key features:
 
-### Hook deployment failures
+-   Isolated risk markets for each asset pair
+-   Optimized capital efficiency through Uniswap v4 integration
+-   Real-time interest rate adjustments
 
-Hook deployment failures are caused by incorrect flags or incorrect salt mining
+### MiladyBankRouter Contract
 
-1. Verify the flags are in agreement:
-    - `getHookCalls()` returns the correct flags
-    - `flags` provided to `HookMiner.find(...)`
-2. Verify salt mining is correct:
-    - In **forge test**: the _deployer_ for: `new Hook{salt: salt}(...)` and `HookMiner.find(deployer, ...)` are the same. This will be `address(this)`. If using `vm.prank`, the deployer will be the pranking address
-    - In **forge script**: the deployer must be the CREATE2 Proxy: `0x4e59b44847b379578588920cA78FbF26c0B4956C`
-        - If anvil does not have the CREATE2 deployer, your foundry may be out of date. You can update it with `foundryup`
+This contract serves as the user facing interface to the protocol:
 
-</details>
+-   **Simplified Interactions**: Provides easy-to-use functions for deposits, withdrawals, borrows, and repayments
+-   **Multi-Asset Operations**: Allows operations across multiple assets in a single transaction
+-   **Position Management**: Helps users manage their lending/borrowing positions
+-   **Flash Loan Integration**: Supports flash loans for advanced use cases
 
----
+Key features:
 
-Additional resources:
+-   Gas-optimized transaction batching
+-   Slippage protection for users
+-   Simplified position management
 
-[Uniswap v4 docs](https://docs.uniswap.org/contracts/v4/overview)
+## How to use
 
-[v4-periphery](https://github.com/uniswap/v4-periphery) contains advanced hook implementations that serve as a great reference
+1. **Deposit Assets**: Add liquidity to the pool to start earning interest
+2. **Borrow Assets**: Once collateral is deposited, borrow other assets through swaps
+3. **Repay Loans**: Return borrowed assets through reverse swaps
+4. **Withdraw**: Remove your deposited assets when desired
 
-[v4-core](https://github.com/uniswap/v4-core)
+## What's next
 
-[v4-by-example](https://v4-by-example.org)
+### MiladyBank Contract Roadmap
 
-FYI
+-   **Risk Parameter Optimization**: Fine-tuning collateralization ratios and liquidation thresholds
+-   **Advanced Interest Rate Models**: Implementing more sophisticated models based on market conditions
+-   **Governance Integration**: Adding protocol governance for parameter adjustments
+-   **Insurance Fund**: Developing a protocol safety mechanism
 
-MiladyBank.sol: Core contract with main logic
-LendingPool.sol: Pool-related structs and functions
-OracleManager.sol: Oracle-related functions and TWAP logic
-LiquidationManager.sol: Liquidation and health check functions
-InterestRateModel.sol: Interest rate calculations
-Events.sol: Event definitions
-Types.sol: Shared structs and constants
+### MiladyBankRouter Roadmap
+
+-   **Position Optimization**: Automatic position rebalancing to minimize liquidation risk
+-   **Limit Orders**: Setting conditional borrows/repayments based on interest rates
+-   **Strategy Integration**: Connecting with yield strategies for idle assets
+-   **Mobile-Friendly Interface**: Simplified interactions for mobile users
+
+## Multi-Asset Expansion
+
+As we add more assets (ETH, BTC, USDC, USDT, etc.), the architecture will evolve:
+
+-   **Isolated Markets**: Each asset pair will have its own risk parameters
+-   **Cross-Collateralization**: Optional pooling of collateral across markets
+-   **Oracle Network Expansion**: Additional price feeds for new assets
+-   **Risk-Adjusted Interest Rates**: Different rates based on asset volatility
+-   **Liquidity Mining Incentives**: Targeted rewards for underserved markets
+
+The modular design allows for seamless addition of new assets without disrupting existing markets.
