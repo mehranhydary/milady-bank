@@ -145,18 +145,13 @@ contract MiladyBank is BaseHook, ReentrancyGuard, Owned {
     function deposit(PoolKey calldata key, int256 amount) external nonReentrant whenNotPaused {
         require(amount > 0, "Deposit amount must be positive");
         address depositor = msg.sender == router ? tx.origin : msg.sender;
-        console.log("Depositor: %s", depositor);
         PoolId poolId = key.toId();
         LendingPool storage pool = lendingPools[poolId];
         UserPosition storage position = pool.userPositions[depositor];
 
         IERC20(Currency.unwrap(key.currency0)).transferFrom(depositor, address(this), uint256(amount));
-        console.log("Depositing %s", amount);
         position.deposits += amount;
         pool.totalDeposits += amount;
-
-        console.log("Deposits: %s", position.deposits);
-        console.log("Total Deposits: %s", pool.totalDeposits);
 
         emit Deposit(depositor, poolId, amount);
     }
@@ -468,11 +463,7 @@ contract MiladyBank is BaseHook, ReentrancyGuard, Owned {
 
             require(position.borrowedInWindow + uint256(borrowAmount) <= MAX_BORROW_PER_WINDOW, "Exceeds rate limit");
 
-            console.log("position.borrows: %s", position.borrows);
-            console.log("borrowAmount: %s", borrowAmount);
-            console.log("position.deposits: %s", position.deposits);
             require((position.borrows + borrowAmount) * 100 <= position.deposits * 75, "Exceeds collateral ratio");
-            console.log("Borrowing %s", borrowAmount);
             // Update storage mappings directly
             lendingPools[poolId].userPositions[depositor].borrows += borrowAmount;
             lendingPools[poolId].totalBorrows += borrowAmount;
