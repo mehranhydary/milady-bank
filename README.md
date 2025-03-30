@@ -100,7 +100,7 @@ As we add more assets (ETH, BTC, USDC, USDT, etc.), the architecture will evolve
 
 The modular design allows for seamless addition of new assets without disrupting existing markets.
 
-### Current Test Coverage for MiladyBank
+<!-- ### Current Test Coverage for MiladyBank
 
 The test suite currently covers core functionality:
 
@@ -175,7 +175,7 @@ The test suite currently covers core functionality:
 
 -   Complex user flows
 -   Multi-operation sequences
--   External protocol interactions
+-   External protocol interactions -->
 
 ### Front end integration
 
