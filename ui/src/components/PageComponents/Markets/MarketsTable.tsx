@@ -1,5 +1,6 @@
 import Image from 'next/image'
 import styles from '@/styles/Markets.module.css'
+import { useState } from 'react'
 
 type Asset = {
 	symbol: string
@@ -13,8 +14,8 @@ type Asset = {
 
 const assets: Asset[] = [
 	{
-		symbol: 'WETH',
-		name: 'Wrapped ETH',
+		symbol: 'ETH',
+		name: 'Ethereum',
 		icon: 'https://app.aave.com/icons/tokens/eth.svg',
 		totalSupply: '1,234.56 ETH',
 		supplyAPY: '2.5%',
@@ -32,6 +33,52 @@ const assets: Asset[] = [
 	},
 ]
 
+const MarketRow = ({ asset }: { asset: Asset }) => {
+	const [dropdownOpen, setDropdownOpen] = useState(false)
+	return (
+		<tr key={asset.symbol}>
+			<td>
+				<div className={styles.assetInfo}>
+					<Image
+						src={asset.icon}
+						alt={asset.symbol}
+						width={24}
+						height={24}
+						className={styles.assetIcon}
+					/>
+					<span>{asset.symbol}</span>
+				</div>
+			</td>
+			<td>{asset.totalSupply}</td>
+			<td className={styles.apy}>{asset.supplyAPY}</td>
+			<td>{asset.totalBorrow}</td>
+			<td className={styles.apy}>{asset.borrowAPY}</td>
+			<td>
+				<div className={styles.actions}>
+					<div className={styles.actionContainer}>
+						<div
+							className={styles.actionButton}
+							// onClick={() => setDropdownOpen(!dropdownOpen)}
+						>
+							⋯
+						</div>
+						{dropdownOpen && (
+							<div className={styles.dropdown}>
+								<div className={styles.dropdownItem}>
+									Supply
+								</div>
+								<div className={styles.dropdownItem}>
+									Borrow
+								</div>
+							</div>
+						)}
+					</div>
+				</div>
+			</td>
+		</tr>
+	)
+}
+
 export default function MarketsTable() {
 	return (
 		<div className={styles.table}>
@@ -48,42 +95,7 @@ export default function MarketsTable() {
 				</thead>
 				<tbody>
 					{assets.map((asset) => (
-						<tr key={asset.symbol}>
-							<td className={styles.assetCell}>
-								<div className={styles.asset}>
-									<div className={styles.assetIcon}>
-										<Image
-											src={asset.icon}
-											alt={asset.symbol}
-											width={24}
-											height={24}
-										/>
-									</div>
-									<div className={styles.assetInfo}>
-										<div className={styles.assetSymbol}>
-											{asset.symbol}
-										</div>
-										<div className={styles.assetName}>
-											{asset.name}
-										</div>
-									</div>
-								</div>
-							</td>
-							<td>{asset.totalSupply}</td>
-							<td className={styles.apy}>{asset.supplyAPY}</td>
-							<td>{asset.totalBorrow}</td>
-							<td className={styles.apy}>{asset.borrowAPY}</td>
-							<td>
-								<div className={styles.actions}>
-									<button className={styles.actionButton}>
-										Supply
-									</button>
-									<button className={styles.actionButton}>
-										Borrow
-									</button>
-								</div>
-							</td>
-						</tr>
+						<MarketRow key={asset.symbol} asset={asset} />
 					))}
 				</tbody>
 			</table>
