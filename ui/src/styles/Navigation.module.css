@@ -6,8 +6,6 @@
 
 .nav {
 	padding: 1.25rem 2rem;
-	background: var(--background-secondary, #111);
-	border-bottom: 1px solid var(--border-color, #333);
 	display: flex;
 	justify-content: space-between;
 	align-items: center;

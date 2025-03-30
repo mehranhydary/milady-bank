@@ -1,8 +1,10 @@
 import Head from 'next/head'
 import Link from 'next/link'
 import styles from '@/styles/Home.module.css'
+import { useAccount } from 'wagmi'
 
 export default function Home() {
+	const { isConnected } = useAccount()
 	return (
 		<>
 			<Head>
@@ -25,15 +27,24 @@ export default function Home() {
 							<br />
 							Powered by Uniswap.
 						</h1>
-
-						<div className={styles.ctas}>
-							<Link href='/dashboard' className={styles.primary}>
-								Launch App
-							</Link>
-							<Link href='/markets' className={styles.secondary}>
-								View Markets
-							</Link>
-						</div>
+						{isConnected && (
+							<div className={styles.ctas}>
+								<>
+									<Link
+										href='/dashboard'
+										className={styles.primary}
+									>
+										Launch App
+									</Link>
+									<Link
+										href='/markets'
+										className={styles.secondary}
+									>
+										View Markets
+									</Link>
+								</>
+							</div>
+						)}
 
 						<div className={styles.subtitle}>Built on Unichain</div>
 					</div>
