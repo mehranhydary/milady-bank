@@ -148,6 +148,9 @@ contract MiladyBank is BaseHook, ReentrancyGuard, Owned {
         });
     }
 
+    // NOTE: Don't need this right now but eventually
+    // we should use a whitelist // allowlist or something
+    // of thta nature
     // Must do this after bank is setup and router is setup
     function setRouter(address _router) external onlyOwner {
         require(_router != address(0), "Invalid router address");
