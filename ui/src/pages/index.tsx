@@ -12,20 +12,30 @@ export default function Home() {
 					content='Next generation DeFi lending'
 				/>
 			</Head>
-			<div className={styles.page}>
+			<div className={styles.container}>
+				<div className={styles.grid}></div>
 				<main className={styles.main}>
-					<h1 className={styles.title}>Bank Protocol</h1>
-					<p className={styles.description}>
-						A borrowing and lending protocol powered by Uniswap V4
-					</p>
+					<div className={styles.logo}>
+						<span className={styles.logoText}>Milady Bank</span>
+					</div>
 
-					<div className={styles.ctas}>
-						<Link href='/dashboard' className={styles.primary}>
-							Launch App
-						</Link>
-						<Link href='/markets' className={styles.secondary}>
-							View Markets
-						</Link>
+					<div className={styles.heroContent}>
+						<h1 className={styles.title}>
+							Designed for DeFi.
+							<br />
+							Powered by Uniswap.
+						</h1>
+
+						<div className={styles.ctas}>
+							<Link href='/dashboard' className={styles.primary}>
+								Launch App
+							</Link>
+							<Link href='/markets' className={styles.secondary}>
+								View Markets
+							</Link>
+						</div>
+
+						<div className={styles.subtitle}>Built on Unichain</div>
 					</div>
 				</main>
 			</div>

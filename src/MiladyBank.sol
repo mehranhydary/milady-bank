@@ -8,9 +8,12 @@ import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
 import {IERC20} from "v4-core/lib/forge-std/src/interfaces/IERC20.sol";
+import {TickMath} from "v4-core/src/libraries/TickMath.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+
 import {TruncatedOracle} from "./libraries/TruncatedOracle.sol";
 
-contract MiladyBank is BaseHook {
+contract MiladyBank is BaseHook, ReentrancyGuard {
     using PoolIdLibrary for PoolKey;
     using TruncatedOracle for TruncatedOracle.Observation[65535];
 
@@ -42,6 +45,8 @@ contract MiladyBank is BaseHook {
     address public router;
     uint256 public constant LIQUIDATION_THRESHOLD = 8000; // 80%
     uint256 public constant LIQUIDATION_BONUS = 500; // 5%
+    // Oracle-related state variables
+    mapping(bytes32 => TruncatedOracle.Observation[65535]) public observations;
     mapping(bytes32 => ObservationState) public states;
     mapping(PoolId => LendingPool) public lendingPools;
 
@@ -50,6 +55,13 @@ contract MiladyBank is BaseHook {
     event Withdraw(address indexed user, PoolId indexed poolId, uint256 amount);
     event Borrow(address indexed user, PoolId indexed poolId, uint256 amount);
     event Repay(address indexed user, PoolId indexed poolId, uint256 amount);
+    event Liquidation(
+        address indexed liquidator,
+        address indexed user,
+        PoolId indexed poolId,
+        uint256 debtAmount,
+        uint256 collateralLiquidated
+    );
 
     constructor(IPoolManager _poolManager, address _router) BaseHook(_poolManager) {
         router = _router;
@@ -142,7 +154,6 @@ contract MiladyBank is BaseHook {
 
     function afterInitialize(address, PoolKey calldata key, uint160, int24 tick)
         external
-        override
         onlyPoolManager
         returns (bytes4)
     {
@@ -151,7 +162,7 @@ contract MiladyBank is BaseHook {
         return BaseHook.afterInitialize.selector;
     }
 
-    function liquidate(PoolKey calldata key, address user, uint256 debtAmount) external {
+    function liquidate(PoolKey calldata key, address user, uint256 debtAmount) external nonReentrant {
         require(!isStale(key), "Stale oracle");
         require(checkHealth(user, key) < 10000, "Position is healthy");
 
@@ -193,7 +204,7 @@ contract MiladyBank is BaseHook {
         healthFactor = (collateralValue * 10000) / (borrowValue * LIQUIDATION_THRESHOLD);
     }
 
-    function deposit(PoolKey calldata key, uint256 amount) external {
+    function deposit(PoolKey calldata key, uint256 amount) external nonReentrant {
         address depositor = msg.sender == router ? tx.origin : msg.sender;
         PoolId poolId = key.toId();
         LendingPool storage pool = lendingPools[poolId];
@@ -206,7 +217,7 @@ contract MiladyBank is BaseHook {
         emit Deposit(depositor, poolId, amount);
     }
 
-    function withdraw(PoolKey calldata key, uint256 amount) external {
+    function withdraw(PoolKey calldata key, uint256 amount) external nonReentrant {
         address withdrawer = msg.sender == router ? tx.origin : msg.sender;
         PoolId poolId = key.toId();
         LendingPool storage pool = lendingPools[poolId];
