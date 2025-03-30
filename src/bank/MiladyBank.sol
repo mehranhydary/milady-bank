@@ -22,22 +22,12 @@ import {TruncatedOracle} from "../libraries/TruncatedOracle.sol";
  * @notice Open items and improvements needed for MiladyBank
  * @dev The following items should be addressed before production deployment
  *
- * 1. Add access controls
- *    - Implement role-based permissions
- *    - Add admin controls
- *    - Create allowlist of approved routers
- *
- * 4. Emergency controls
- *    - Add emergency pause function
- *    - Log pause/unpause with reason
- *    - Track emergency withdrawals
- *
- * 5. Interest rate model improvements
+ * 1. Interest rate model improvements
  *    - Add dynamic rate adjustments
  *    - Implement utilization curves
  *    - Add rate caps and floors
  *
- * 7. Testing coverage
+ * 2. Testing coverage
  *    - Unit tests for core functions
  *    - Integration tests
  *    - Fuzzing and invariant tests
