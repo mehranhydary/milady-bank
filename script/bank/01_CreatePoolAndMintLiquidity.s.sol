@@ -16,29 +16,18 @@ import {Config} from "./base/Config.sol";
 contract CreatePoolAndAddLiquidityScript is Script, Constants, Config {
     using CurrencyLibrary for Currency;
 
-    /////////////////////////////////////
-    // --- Parameters to Configure --- //
-    /////////////////////////////////////
+    uint24 lpFee = 3000; // Need to determine if this is enough
+    int24 tickSpacing = 60; // Look into if you want to mak this tighter (45 or something)
 
-    // --- pool configuration --- //
-    // fees paid by swappers that accrue to liquidity providers
-    uint24 lpFee = 3000; // 0.30%
-    int24 tickSpacing = 60;
+    uint160 startingPrice = 79228162514264337593543950336; // floor(sqrt(1) * 2^96); need to also determine what the current price should be... prob look at the actual price of ETH on the day you launch this
 
-    // starting price of the pool, in sqrtPriceX96
-    uint160 startingPrice = 79228162514264337593543950336; // floor(sqrt(1) * 2^96)
-
-    // --- liquidity position configuration --- //
     uint256 public token0Amount = 1e18;
     uint256 public token1Amount = 1e18;
 
-    // range of the position
-    int24 tickLower = -600; // must be a multiple of tickSpacing
-    int24 tickUpper = 600;
-    /////////////////////////////////////
+    int24 tickLower = -887220; // must be a multiple of tickSpacing (-60 * 14787)
+    int24 tickUpper = 887220; // must be a multiple of tickSpacing (60 * 14787)
 
     function run() external {
-        // tokens should be sorted
         PoolKey memory pool = PoolKey({
             currency0: currency0,
             currency1: currency1,
@@ -48,9 +37,6 @@ contract CreatePoolAndAddLiquidityScript is Script, Constants, Config {
         });
         bytes memory hookData = new bytes(0);
 
-        // --------------------------------- //
-
-        // Converts token amounts to liquidity units
         uint128 liquidity = LiquidityAmounts.getLiquidityForAmounts(
             startingPrice,
             TickMath.getSqrtPriceAtTick(tickLower),
@@ -59,7 +45,6 @@ contract CreatePoolAndAddLiquidityScript is Script, Constants, Config {
             token1Amount
         );
 
-        // slippage limits
         uint256 amount0Max = token0Amount + 1 wei;
         uint256 amount1Max = token1Amount + 1 wei;
 

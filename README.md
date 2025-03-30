@@ -37,6 +37,18 @@ Key features:
 -   Optimized capital efficiency through Uniswap v4 integration
 -   Real-time interest rate adjustments
 
+#### Truncated Oracle Implementation
+
+MiladyBank integrates Uniswap v4's truncated oracle hook for secure price feeds:
+
+-   **Manipulation Resistance**: The oracle limits price movement per block, making it significantly more expensive to manipulate
+-   **Geometric Mean Formula**: Records asset prices using a geometric mean calculation
+-   **Smoothed Price Impact**: Large swaps (legitimate or malicious) have their price impact smoothed over time
+-   **Enhanced Security**: Requires sustained price manipulation across multiple blocks, protecting against flash loan attacks
+-   **TWAP Integration**: Uses time-weighted average prices with a 30-minute period for stable pricing
+
+The truncated oracle is critical for the protocol's liquidation system, ensuring positions aren't unfairly liquidated due to temporary price spikes or manipulation attempts.
+
 ### MiladyBankRouter Contract
 
 This contract serves as the user facing interface to the protocol:
@@ -67,6 +79,7 @@ Key features:
 -   **Advanced Interest Rate Models**: Implementing more sophisticated models based on market conditions
 -   **Governance Integration**: Adding protocol governance for parameter adjustments
 -   **Insurance Fund**: Developing a protocol safety mechanism
+-   **Oracle Improvements**: Enhancing the truncated oracle with additional security features and fallback mechanisms
 
 ### MiladyBankRouter Roadmap
 

@@ -111,9 +111,8 @@ contract MiladyBank is BaseHook, ReentrancyGuard, Owned {
     event Paused(address indexed owner);
     event Unpaused(address indexed owner);
 
-    constructor(IPoolManager _poolManager, address _router) BaseHook(_poolManager) Owned(msg.sender) {
+    constructor(IPoolManager _poolManager) BaseHook(_poolManager) Owned(msg.sender) {
         require(_router != address(0), "Invalid router address");
-        router = _router;
     }
 
     modifier whenNotPaused() {
@@ -152,6 +151,7 @@ contract MiladyBank is BaseHook, ReentrancyGuard, Owned {
         });
     }
 
+    // Must do this after bank is setup and router is setup
     function setRouter(address _router) external onlyOwner {
         require(_router != address(0), "Invalid router address");
         router = _router;
