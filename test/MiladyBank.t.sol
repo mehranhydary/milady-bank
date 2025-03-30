@@ -237,4 +237,119 @@ contract MiladyBankTest is Test, Fixtures {
         // Verify position was updated correctly
         assertEq(deposits, 0);
     }
+
+    function test_borrow() public {
+        // Setup initial deposit as collateral
+        int256 depositAmount = 10000;
+        vm.startPrank(msg.sender); // Pranking here because we are not using a router
+        MockERC20(Currency.unwrap(currency0)).mint(msg.sender, uint256(depositAmount));
+        MockERC20(Currency.unwrap(currency0)).approve(address(hook), uint256(depositAmount));
+        hook.deposit(key, depositAmount);
+        vm.stopPrank();
+
+        // Setup borrow params
+        int256 borrowAmount = 500; // Borrowing 50% of collateral
+        int256 minAmountOut = 450; // Allow some slippage
+
+        // Perform borrow via swap
+        IPoolManager.SwapParams memory params = IPoolManager.SwapParams({
+            zeroForOne: true,
+            amountSpecified: borrowAmount,
+            sqrtPriceLimitX96: MIN_PRICE_LIMIT
+        });
+
+        // Verify flash loan protection checks
+        vm.warp(block.timestamp + 2 minutes); // Move past MIN_HOLD_TIME
+
+        vm.prank(address(hook.owner()));
+        hook.setRouter(address(swapRouter));
+
+        swapRouter.swap(key, params, PoolSwapTest.TestSettings(false, false), "");
+        // Verify borrow was recorded correctly
+        (, int256 borrows,,) = hook.getUserPosition(key, msg.sender);
+
+        assertEq(borrows, borrowAmount);
+
+        // Verify total borrows updated
+        (, int256 totalBorrows,,) = hook.getLendingPool(key);
+        assertEq(totalBorrows, borrowAmount);
+    }
+
+    function test_borrow_RevertExceedsCollateralRatio() public {
+        // Setup initial deposit as collateral
+        int256 depositAmount = 100;
+        MockERC20(Currency.unwrap(currency0)).mint(address(this), uint256(depositAmount));
+        MockERC20(Currency.unwrap(currency0)).approve(address(hook), uint256(depositAmount));
+        hook.deposit(key, depositAmount);
+
+        // Try to borrow more than 75% of collateral
+        IPoolManager.SwapParams memory params = IPoolManager.SwapParams({
+            zeroForOne: true,
+            amountSpecified: 80, // Trying to borrow 80% of collateral
+            sqrtPriceLimitX96: MIN_PRICE_LIMIT
+        });
+
+        vm.prank(address(hook.owner()));
+        hook.setRouter(address(swapRouter));
+
+        vm.expectRevert();
+        swapRouter.swap(key, params, PoolSwapTest.TestSettings(false, false), "");
+    }
+
+    function test_borrow_SuccessfulBorrow() public {
+        // Setup initial deposit as collateral
+
+        int256 depositAmount = 10000;
+        vm.startPrank(msg.sender); // Pranking here because we are not using a router
+        MockERC20(Currency.unwrap(currency0)).mint(msg.sender, uint256(depositAmount));
+        MockERC20(Currency.unwrap(currency0)).approve(address(hook), uint256(depositAmount));
+        hook.deposit(key, depositAmount);
+        vm.stopPrank();
+
+        // Perform borrow via swap
+        IPoolManager.SwapParams memory params = IPoolManager.SwapParams({
+            zeroForOne: true,
+            amountSpecified: 500, // Borrowing 50% of collateral
+            sqrtPriceLimitX96: MIN_PRICE_LIMIT
+        });
+
+        vm.prank(address(hook.owner()));
+        hook.setRouter(address(swapRouter));
+
+        swapRouter.swap(key, params, PoolSwapTest.TestSettings(false, false), "");
+
+        // Verify borrow was recorded
+        (, int256 borrows,,) = hook.getUserPosition(key, msg.sender);
+        assertEq(borrows, 500);
+    }
+
+    function test_repay_SuccessfulRepayment() public {
+        // Setup initial deposit and borrow
+        int256 depositAmount = 10000;
+        vm.startPrank(msg.sender); // Pranking here because we are not using a router
+        MockERC20(Currency.unwrap(currency0)).mint(msg.sender, uint256(depositAmount));
+        MockERC20(Currency.unwrap(currency0)).approve(address(hook), uint256(depositAmount));
+        hook.deposit(key, depositAmount);
+        vm.stopPrank();
+
+        vm.prank(address(hook.owner()));
+        hook.setRouter(address(swapRouter));
+
+        // First borrow
+        IPoolManager.SwapParams memory borrowParams =
+            IPoolManager.SwapParams({zeroForOne: true, amountSpecified: 500, sqrtPriceLimitX96: MIN_PRICE_LIMIT});
+        swapRouter.swap(key, borrowParams, PoolSwapTest.TestSettings(false, false), "");
+
+        // Then repay
+        IPoolManager.SwapParams memory repayParams = IPoolManager.SwapParams({
+            zeroForOne: false,
+            amountSpecified: 250, // Repaying half the borrowed amount
+            sqrtPriceLimitX96: MAX_PRICE_LIMIT
+        });
+        swapRouter.swap(key, repayParams, PoolSwapTest.TestSettings(false, false), "");
+
+        // Verify repayment was recorded
+        (, int256 borrows,,) = hook.getUserPosition(key, address(this));
+        assertEq(borrows, 250); // Should be half of original borrow
+    }
 }

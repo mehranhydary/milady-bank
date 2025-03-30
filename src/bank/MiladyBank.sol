@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: VPL-1.0
 pragma solidity ^0.8.20;
 
+// Todo: Remove this when you're going prod
+import "forge-std/Test.sol";
 import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {Hooks} from "v4-core/src/libraries/Hooks.sol";
@@ -143,13 +145,18 @@ contract MiladyBank is BaseHook, ReentrancyGuard, Owned {
     function deposit(PoolKey calldata key, int256 amount) external nonReentrant whenNotPaused {
         require(amount > 0, "Deposit amount must be positive");
         address depositor = msg.sender == router ? tx.origin : msg.sender;
+        console.log("Depositor: %s", depositor);
         PoolId poolId = key.toId();
         LendingPool storage pool = lendingPools[poolId];
         UserPosition storage position = pool.userPositions[depositor];
 
         IERC20(Currency.unwrap(key.currency0)).transferFrom(depositor, address(this), uint256(amount));
+        console.log("Depositing %s", amount);
         position.deposits += amount;
         pool.totalDeposits += amount;
+
+        console.log("Deposits: %s", position.deposits);
+        console.log("Total Deposits: %s", pool.totalDeposits);
 
         emit Deposit(depositor, poolId, amount);
     }
@@ -223,6 +230,22 @@ contract MiladyBank is BaseHook, ReentrancyGuard, Owned {
             afterAddLiquidityReturnDelta: false,
             afterRemoveLiquidityReturnDelta: false
         });
+    }
+
+    function getLendingPool(PoolKey calldata key)
+        external
+        view
+        returns (int256 totalDeposits, int256 totalBorrows, int256 currentRate, int256 utilization)
+    {
+        PoolId poolId = key.toId();
+        LendingPool storage pool = lendingPools[poolId];
+
+        return (
+            pool.totalDeposits,
+            pool.totalBorrows,
+            pool.lastInterestRate,
+            pool.totalDeposits == 0 ? int256(0) : (pool.totalBorrows * 10000) / pool.totalDeposits
+        );
     }
 
     function getUserPosition(PoolKey calldata key, address user)
@@ -423,9 +446,12 @@ contract MiladyBank is BaseHook, ReentrancyGuard, Owned {
         whenNotPaused
         returns (bytes4, BeforeSwapDelta, uint24)
     {
+        // Todo: Come back to this later
+        address depositor = sender == router ? tx.origin : sender;
+
         PoolId poolId = key.toId();
         LendingPool storage pool = lendingPools[poolId];
-        UserPosition storage position = pool.userPositions[sender];
+        UserPosition storage position = pool.userPositions[depositor];
         // Update borrow amounts based on swap
         if (params.zeroForOne) {
             // Borrowing
@@ -442,15 +468,20 @@ contract MiladyBank is BaseHook, ReentrancyGuard, Owned {
 
             require(position.borrowedInWindow + uint256(borrowAmount) <= MAX_BORROW_PER_WINDOW, "Exceeds rate limit");
 
+            console.log("position.borrows: %s", position.borrows);
+            console.log("borrowAmount: %s", borrowAmount);
+            console.log("position.deposits: %s", position.deposits);
             require((position.borrows + borrowAmount) * 100 <= position.deposits * 75, "Exceeds collateral ratio");
-            position.borrows += borrowAmount;
-            pool.totalBorrows += borrowAmount;
+            console.log("Borrowing %s", borrowAmount);
+            // Update storage mappings directly
+            lendingPools[poolId].userPositions[depositor].borrows += borrowAmount;
+            lendingPools[poolId].totalBorrows += borrowAmount;
 
             // Update flash loan tracking
             position.lastBorrowTime = block.timestamp;
             position.borrowedInWindow += uint256(borrowAmount);
 
-            emit Borrow(sender, poolId, borrowAmount);
+            emit Borrow(depositor, poolId, borrowAmount);
         } else {
             // Repaying
             int256 repayAmount = params.amountSpecified;
@@ -459,7 +490,7 @@ contract MiladyBank is BaseHook, ReentrancyGuard, Owned {
             require(position.borrows >= repayAmount, "Repaying too much");
             position.borrows -= repayAmount;
             pool.totalBorrows -= repayAmount;
-            emit Repay(sender, poolId, repayAmount);
+            emit Repay(depositor, poolId, repayAmount);
         }
 
         pool.lastInterestRate = _calculateInterestRate(pool);
