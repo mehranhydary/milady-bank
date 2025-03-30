@@ -1,0 +1,39 @@
+.accountContainer {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 8px 12px;
+	background-color: #1a202c;
+	border-radius: 12px;
+	border: 1px solid #2d3748;
+}
+
+.avatar {
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+	object-fit: cover;
+}
+
+.addressInfo {
+	font-size: 14px;
+	font-weight: 500;
+	color: #fff;
+}
+
+.disconnectButton {
+	padding: 6px 12px;
+	background-color: #2d3748;
+	border: 1px solid #f50db4;
+	border-radius: 6px;
+	font-size: 14px;
+	font-weight: 500;
+	color: #f50db4;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.disconnectButton:hover {
+	background-color: #f50db4;
+	color: white;
+}

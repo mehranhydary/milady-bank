@@ -1,0 +1,22 @@
+.buttonContainer {
+	padding: 6px 18px;
+	margin: 8px 0px;
+	background-color: #2d3748;
+	border: 1px solid #f50db4;
+	border-radius: 6px;
+	font-size: 16px;
+	font-weight: 500;
+	color: #f50db4;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.buttonContainer:hover {
+	background-color: #f50db4;
+	color: white;
+}
+
+.buttonContainer:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
