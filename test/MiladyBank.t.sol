@@ -170,4 +170,71 @@ contract MiladyBankTest is Test, Fixtures {
         // Verify position was updated correctly
         assertEq(deposits, depositAmount);
     }
+
+    function test_withdraw() public {
+        int256 depositAmount = 100;
+        // Mint tokens to test contract
+        MockERC20(Currency.unwrap(currency0)).mint(address(this), uint256(depositAmount));
+        MockERC20(Currency.unwrap(currency0)).approve(address(hook), uint256(depositAmount));
+
+        // Make deposit
+        hook.deposit(key, depositAmount);
+
+        // Make withdrawal
+        hook.withdraw(key, depositAmount);
+
+        // Verify withdrawal was successful
+        assertEq(MockERC20(Currency.unwrap(currency0)).balanceOf(address(hook)), 0);
+    }
+
+    function test_withdraw_RevertWhenPaused() public {
+        // Test should fail since we expect a revert but the deposit succeeds
+        int256 depositAmount = 100;
+
+        // Setup: Mint tokens and approve spending
+        MockERC20(Currency.unwrap(currency0)).mint(address(this), uint256(depositAmount));
+        MockERC20(Currency.unwrap(currency0)).approve(address(hook), uint256(depositAmount));
+
+        // Make deposit
+        hook.deposit(key, depositAmount);
+
+        // Pause the contract as owner
+        vm.prank(hook.owner());
+        hook.pause();
+
+        // Try to withdraw - this should revert since contract is paused
+        vm.expectRevert("Contract is paused");
+        hook.withdraw(key, depositAmount);
+    }
+
+    function test_withdraw_RevertZeroAmount() public {
+        // Try to withdraw 0 amount
+        vm.expectRevert("Withdraw amount must be positive");
+        hook.withdraw(key, 0);
+    }
+
+    function test_withdraw_RevertInsufficientBalance() public {
+        // Try to withdraw more than deposited
+        vm.expectRevert("Insufficient deposits");
+        hook.withdraw(key, 100);
+    }
+
+    function test_withdraw_UpdatesUserPosition() public {
+        int256 depositAmount = 100;
+        // Mint tokens to test contract
+        MockERC20(Currency.unwrap(currency0)).mint(address(this), uint256(depositAmount));
+        MockERC20(Currency.unwrap(currency0)).approve(address(hook), uint256(depositAmount));
+
+        // Make deposit
+        hook.deposit(key, depositAmount);
+
+        // Make withdrawal
+        hook.withdraw(key, depositAmount);
+
+        // Get user position from lending pool
+        (int256 deposits,,,) = hook.getUserPosition(key, address(this));
+
+        // Verify position was updated correctly
+        assertEq(deposits, 0);
+    }
 }

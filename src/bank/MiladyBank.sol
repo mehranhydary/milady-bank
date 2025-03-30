@@ -155,6 +155,7 @@ contract MiladyBank is BaseHook, ReentrancyGuard, Owned {
     }
 
     function withdraw(PoolKey calldata key, int256 amount) external nonReentrant whenNotPaused {
+        require(amount > 0, "Withdraw amount must be positive");
         address withdrawer = msg.sender == router ? tx.origin : msg.sender;
         PoolId poolId = key.toId();
         LendingPool storage pool = lendingPools[poolId];
