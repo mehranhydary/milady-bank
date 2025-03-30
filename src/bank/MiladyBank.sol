@@ -208,10 +208,9 @@ contract MiladyBank is BaseHook, ReentrancyGuard, Owned {
         return block.timestamp > uint256(uint48(tickCumulatives[0])) + STALENESS_PERIOD;
     }
 
-    function beforeInitialize(address, PoolKey calldata key, uint160, bytes calldata)
-        external
-        onlyPoolManager
-        whenNotPaused
+    function _beforeInitialize(address, PoolKey calldata key, uint160, bytes calldata)
+        internal
+        override
         returns (bytes4)
     {
         PoolId poolId = key.toId();
