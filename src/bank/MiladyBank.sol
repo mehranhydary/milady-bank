@@ -18,6 +18,30 @@ import {BaseHook} from "v4-periphery/src/utils/BaseHook.sol";
 
 import {TruncatedOracle} from "../libraries/TruncatedOracle.sol";
 
+/**
+ * @notice Open items and improvements needed for MiladyBank
+ * @dev The following items should be addressed before production deployment
+ *
+ * 1. Add access controls
+ *    - Implement role-based permissions
+ *    - Add admin controls
+ *    - Create allowlist of approved routers
+ *
+ * 4. Emergency controls
+ *    - Add emergency pause function
+ *    - Log pause/unpause with reason
+ *    - Track emergency withdrawals
+ *
+ * 5. Interest rate model improvements
+ *    - Add dynamic rate adjustments
+ *    - Implement utilization curves
+ *    - Add rate caps and floors
+ *
+ * 7. Testing coverage
+ *    - Unit tests for core functions
+ *    - Integration tests
+ *    - Fuzzing and invariant tests
+ */
 contract MiladyBank is BaseHook, ReentrancyGuard, Owned {
     using StateLibrary for IPoolManager;
     using PoolIdLibrary for PoolKey;
@@ -27,6 +51,8 @@ contract MiladyBank is BaseHook, ReentrancyGuard, Owned {
     struct UserPosition {
         int256 deposits; // Changed from uint256 to int256
         int256 borrows; // Changed from uint256 to int256
+        uint256 lastBorrowTime;
+        uint256 borrowedInWindow;
     }
 
     struct LendingPool {
@@ -46,9 +72,15 @@ contract MiladyBank is BaseHook, ReentrancyGuard, Owned {
     uint32 public constant TWAP_PERIOD = 30 minutes;
     uint32 public constant STALENESS_PERIOD = 35 minutes;
 
+    // Flash loan protection constants
+    uint256 public constant MIN_HOLD_TIME = 1 minutes;
+    uint256 public constant RATE_LIMIT_WINDOW = 1 hours;
+    uint256 public constant MAX_BORROW_PER_WINDOW = 1000e18; // Adjust based on token decimals
+
     address public router;
     uint256 public constant LIQUIDATION_THRESHOLD = 8000; // 80%
     uint256 public constant LIQUIDATION_BONUS = 500; // 5%
+    bool public paused;
     // Oracle-related state variables
     mapping(bytes32 => TruncatedOracle.Observation[65535]) public observations;
     mapping(bytes32 => ObservationState) public states;
@@ -66,9 +98,29 @@ contract MiladyBank is BaseHook, ReentrancyGuard, Owned {
         uint256 debtAmount,
         uint256 collateralLiquidated
     );
+    event Paused(address indexed owner);
+    event Unpaused(address indexed owner);
 
     constructor(IPoolManager _poolManager, address _router) BaseHook(_poolManager) Owned(msg.sender) {
+        require(_router != address(0), "Invalid router address");
         router = _router;
+    }
+
+    modifier whenNotPaused() {
+        require(!paused, "Contract is paused");
+        _;
+    }
+
+    function pause() external onlyOwner {
+        require(!paused, "Contract is already paused");
+        paused = true;
+        emit Paused(msg.sender);
+    }
+
+    function unpause() external onlyOwner {
+        require(paused, "Contract is not paused");
+        paused = false;
+        emit Unpaused(msg.sender);
     }
 
     function getHookPermissions() public pure override returns (Hooks.Permissions memory) {
@@ -88,6 +140,11 @@ contract MiladyBank is BaseHook, ReentrancyGuard, Owned {
             afterAddLiquidityReturnDelta: false,
             afterRemoveLiquidityReturnDelta: false
         });
+    }
+
+    function setRouter(address _router) external onlyOwner {
+        require(_router != address(0), "Invalid router address");
+        router = _router;
     }
 
     function _blockTimestamp() internal view returns (uint32) {
@@ -144,6 +201,7 @@ contract MiladyBank is BaseHook, ReentrancyGuard, Owned {
     function beforeInitialize(address, PoolKey calldata key, uint160, bytes calldata)
         external
         onlyPoolManager
+        whenNotPaused
         returns (bytes4)
     {
         PoolId poolId = key.toId();
@@ -161,7 +219,7 @@ contract MiladyBank is BaseHook, ReentrancyGuard, Owned {
         return BaseHook.afterInitialize.selector;
     }
 
-    function liquidate(PoolKey calldata key, address user, uint256 debtAmount) external nonReentrant {
+    function liquidate(PoolKey calldata key, address user, uint256 debtAmount) external nonReentrant whenNotPaused {
         require(!isStale(key), "Stale oracle");
         require(checkHealth(user, key) < 10000, "Position is healthy");
 
@@ -203,7 +261,7 @@ contract MiladyBank is BaseHook, ReentrancyGuard, Owned {
         healthFactor = (collateralValue * 10000) / (borrowValue * LIQUIDATION_THRESHOLD);
     }
 
-    function deposit(PoolKey calldata key, int256 amount) external nonReentrant {
+    function deposit(PoolKey calldata key, int256 amount) external nonReentrant whenNotPaused {
         address depositor = msg.sender == router ? tx.origin : msg.sender;
         PoolId poolId = key.toId();
         LendingPool storage pool = lendingPools[poolId];
@@ -216,7 +274,7 @@ contract MiladyBank is BaseHook, ReentrancyGuard, Owned {
         emit Deposit(depositor, poolId, amount);
     }
 
-    function withdraw(PoolKey calldata key, int256 amount) external nonReentrant {
+    function withdraw(PoolKey calldata key, int256 amount) external nonReentrant whenNotPaused {
         address withdrawer = msg.sender == router ? tx.origin : msg.sender;
         PoolId poolId = key.toId();
         LendingPool storage pool = lendingPools[poolId];
@@ -251,7 +309,7 @@ contract MiladyBank is BaseHook, ReentrancyGuard, Owned {
         PoolKey calldata key,
         IPoolManager.ModifyLiquidityParams calldata params,
         bytes calldata
-    ) internal override returns (bytes4) {
+    ) internal override whenNotPaused returns (bytes4) {
         PoolId poolId = key.toId();
         LendingPool storage pool = lendingPools[poolId];
 
@@ -282,7 +340,7 @@ contract MiladyBank is BaseHook, ReentrancyGuard, Owned {
         PoolKey calldata key,
         IPoolManager.ModifyLiquidityParams calldata params,
         bytes calldata
-    ) internal override returns (bytes4) {
+    ) internal override whenNotPaused returns (bytes4) {
         PoolId poolId = key.toId();
         LendingPool storage pool = lendingPools[poolId];
 
@@ -322,6 +380,7 @@ contract MiladyBank is BaseHook, ReentrancyGuard, Owned {
     function _beforeSwap(address sender, PoolKey calldata key, IPoolManager.SwapParams calldata params, bytes calldata)
         internal
         override
+        whenNotPaused
         returns (bytes4, BeforeSwapDelta, uint24)
     {
         PoolId poolId = key.toId();
@@ -333,9 +392,24 @@ contract MiladyBank is BaseHook, ReentrancyGuard, Owned {
             int256 borrowAmount = params.amountSpecified;
             require(borrowAmount > 0, "Invalid borrow amount");
 
+            // Flash loan protection checks
+            require(block.timestamp >= position.lastBorrowTime + MIN_HOLD_TIME, "Must wait before borrowing again");
+
+            // Reset window if expired
+            if (block.timestamp >= position.lastBorrowTime + RATE_LIMIT_WINDOW) {
+                position.borrowedInWindow = 0;
+            }
+
+            require(position.borrowedInWindow + uint256(borrowAmount) <= MAX_BORROW_PER_WINDOW, "Exceeds rate limit");
+
             require((position.borrows + borrowAmount) * 100 <= position.deposits * 75, "Exceeds collateral ratio");
             position.borrows += borrowAmount;
             pool.totalBorrows += borrowAmount;
+
+            // Update flash loan tracking
+            position.lastBorrowTime = block.timestamp;
+            position.borrowedInWindow += uint256(borrowAmount);
+
             emit Borrow(sender, poolId, borrowAmount);
         } else {
             // Repaying
