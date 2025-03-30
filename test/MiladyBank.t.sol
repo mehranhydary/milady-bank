@@ -113,7 +113,61 @@ contract MiladyBankTest is Test, Fixtures {
     }
 
     // Add a simple test that doesn't depend on pool initialization
-    function test_hookDeployment() public {
+    function test_hookDeployment() public view {
         assertTrue(address(hook) != address(0), "Hook should be deployed");
+    }
+
+    function test_deposit() public {
+        int256 depositAmount = 100;
+        // Mint tokens to test contract
+        MockERC20(Currency.unwrap(currency0)).mint(address(this), uint256(depositAmount));
+
+        // Approve hook to spend tokens
+        MockERC20(Currency.unwrap(currency0)).approve(address(hook), uint256(depositAmount));
+
+        // Make deposit
+        hook.deposit(key, depositAmount);
+
+        // Verify deposit was successful
+        assertEq(MockERC20(Currency.unwrap(currency0)).balanceOf(address(hook)), uint256(depositAmount));
+    }
+
+    function test_deposit_RevertWhenPaused() public {
+        // Test should fail since we expect a revert but the deposit succeeds
+        int256 depositAmount = 100;
+
+        // Setup: Mint tokens and approve spending
+        MockERC20(Currency.unwrap(currency0)).mint(address(this), uint256(depositAmount));
+        MockERC20(Currency.unwrap(currency0)).approve(address(hook), uint256(depositAmount));
+
+        // Pause the contract as owner
+        vm.prank(hook.owner());
+        hook.pause();
+
+        // Try to deposit - this should revert since contract is paused
+        vm.expectRevert("Contract is paused");
+        hook.deposit(key, depositAmount);
+    }
+
+    function test_deposit_RevertZeroAmount() public {
+        // Try to deposit 0 amount
+        vm.expectRevert("Deposit amount must be positive");
+        hook.deposit(key, 0);
+    }
+
+    function test_deposit_UpdatesUserPosition() public {
+        int256 depositAmount = 100;
+        // Mint tokens to test contract
+        MockERC20(Currency.unwrap(currency0)).mint(address(this), uint256(depositAmount));
+        MockERC20(Currency.unwrap(currency0)).approve(address(hook), uint256(depositAmount));
+
+        // Make deposit
+        hook.deposit(key, depositAmount);
+
+        // Get user position from lending pool
+        (int256 deposits,,,) = hook.getUserPosition(key, address(this));
+
+        // Verify position was updated correctly
+        assertEq(deposits, depositAmount);
     }
 }

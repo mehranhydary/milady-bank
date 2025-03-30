@@ -141,6 +141,7 @@ contract MiladyBank is BaseHook, ReentrancyGuard, Owned {
 
     // 2. External Core Functions - User Operations
     function deposit(PoolKey calldata key, int256 amount) external nonReentrant whenNotPaused {
+        require(amount > 0, "Deposit amount must be positive");
         address depositor = msg.sender == router ? tx.origin : msg.sender;
         PoolId poolId = key.toId();
         LendingPool storage pool = lendingPools[poolId];
@@ -221,6 +222,18 @@ contract MiladyBank is BaseHook, ReentrancyGuard, Owned {
             afterAddLiquidityReturnDelta: false,
             afterRemoveLiquidityReturnDelta: false
         });
+    }
+
+    function getUserPosition(PoolKey calldata key, address user)
+        external
+        view
+        returns (int256 deposits, int256 borrows, uint256 lastBorrowTime, uint256 borrowedInWindow)
+    {
+        PoolId poolId = key.toId();
+        LendingPool storage pool = lendingPools[poolId];
+        UserPosition storage position = pool.userPositions[user];
+
+        return (position.deposits, position.borrows, position.lastBorrowTime, position.borrowedInWindow);
     }
 
     function getPrice(PoolKey calldata key) public view returns (uint256) {
