@@ -349,7 +349,7 @@ contract MiladyBankTest is Test, Fixtures {
         swapRouter.swap(key, repayParams, PoolSwapTest.TestSettings(false, false), "");
 
         // Verify repayment was recorded
-        (, int256 borrows,,) = hook.getUserPosition(key, address(this));
+        (, int256 borrows,,) = hook.getUserPosition(key, msg.sender);
         assertEq(borrows, 250); // Should be half of original borrow
     }
 }
