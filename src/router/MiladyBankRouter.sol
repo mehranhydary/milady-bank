@@ -10,7 +10,6 @@ import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
 import {BaseRouter} from "./BaseRouter.sol";
 import {TokenUtils} from "../utils/TokenUtils.sol";
 import {ReentrancyGuard} from "v4-core/lib/solmate/src/utils/ReentrancyGuard.sol";
-import {Owned} from "v4-core/lib/solmate/src/auth/Owned.sol";
 
 /**
  * @notice Open items and improvements needed for MiladyBankRouter
@@ -36,41 +35,15 @@ import {Owned} from "v4-core/lib/solmate/src/auth/Owned.sol";
  *    - Add admin controls
  *    - Create allowlist of approved routers
  */
-contract MiladyBankRouter is BaseRouter, ReentrancyGuard, Owned {
+contract MiladyBankRouter is BaseRouter, ReentrancyGuard {
     using CurrencyLibrary for Currency;
     using TokenUtils for Currency;
 
     MiladyBank public immutable bank;
-    bool public paused;
 
-    // Events
-    event Deposited(address indexed user, address token, int256 amount);
-    event Withdrawn(address indexed user, address token, int256 amount);
-    event Borrowed(address indexed user, address token, int256 amount, int256 amountOut);
-    event Repaid(address indexed user, address token, int256 amount, int256 amountIn);
-    event Paused(address indexed owner);
-    event Unpaused(address indexed owner);
-
-    constructor(IPoolManager _poolManager, MiladyBank _bank) BaseRouter(_poolManager) Owned(msg.sender) {
+    constructor(IPoolManager _poolManager, MiladyBank _bank) BaseRouter(_poolManager, msg.sender) {
         bank = _bank;
         paused = false;
-    }
-
-    modifier whenNotPaused() {
-        require(!paused, "Contract is paused");
-        _;
-    }
-
-    function pause() external onlyOwner {
-        require(!paused, "Contract is already paused");
-        paused = true;
-        emit Paused(msg.sender);
-    }
-
-    function unpause() external onlyOwner {
-        require(paused, "Contract is not paused");
-        paused = false;
-        emit Unpaused(msg.sender);
     }
 
     // Basic operations
